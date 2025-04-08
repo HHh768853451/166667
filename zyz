@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>记忆清除器</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+        }
+        
+        h1 {
+            margin-bottom: 30px;
+            color: #222;
+        }
+        
+        #upload-container {
+            margin-bottom: 20px;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .upload-btn {
+            background-color: #ff4d4d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .upload-btn:hover {
+            background-color: #ff1a1a;
+            transform: scale(1.05);
+        }
+        
+        #preview-container {
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        #preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        #canvas {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #result-message {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff4d4d;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>记忆清除器</h1>
+        
+        <div id="upload-container">
+            <input type="file" id="file-input" accept="image/*">
+            <button class="upload-btn" id="upload-btn">选择照片上传</button>
+        </div>
+        
+        <div id="preview-container">
+            <img id="preview-image" alt="预览图片">
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="loading" id="loading">清除中...</div>
+        
+        <div id="result-message">记忆已清除</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('file-input');
+            const uploadBtn = document.getElementById('upload-btn');
+            const previewImage = document.getElementById('preview-image');
+            const canvas = document.getElementById('canvas');
+            const loading = document.getElementById('loading');
+            const resultMessage = document.getElementById('result-message');
+            const previewContainer = document.getElementById('preview-container');
+            
+            let ctx = canvas.getContext('2d');
+            let particles = [];
+            let animationId;
+            let imageLoaded = false;
+            
+            // 设置canvas尺寸
+            function resizeCanvas() {
+                if (previewImage.naturalWidth > 0) {
+                    canvas.width = previewImage.width;
+                    canvas.height = previewImage.height;
+                }
+            }
+            
+            // 上传按钮点击事件
+            uploadBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // 文件选择事件
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length === 0) return;
+                
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    previewImage.src = event.target.result;
+                    previewImage.style.display = 'block';
+                    imageLoaded = true;
+                    
+                    previewImage.onload = function() {
+                        resizeCanvas();
+                        // 自动开始焚烧效果
+                        setTimeout(startBurningEffect, 1000);
+                    };
+                };
+                
+                reader.readAsDataURL(file);
+            });
+            
+            // 创建火焰粒子
+            function createParticles(x, y, count) {
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        x: x + Math.random() * 20 - 10,
+                        y: y,
+                        size: Math.random() * 3 + 1,
+                        speedX: Math.random() * 2 - 1,
+                        speedY: Math.random() * -3 - 1,
+                        color: `hsl(${Math.random() * 30 + 10}, 100%, ${Math.random() * 30 + 50}%)`,
+                        life: 100
+                    });
+                }
+            }
+            
+            // 更新粒子
+            function updateParticles() {
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    p.life--;
+                    
+                    // 粒子变小
+                    p.size *= 0.98;
+                    
+                    // 移除死亡的粒子
+                    if (p.life <= 0 || p.size <= 0.1) {
+                        particles.splice(i, 1);
+                        i--;
+                    }
+                }
+            }
+            
+            // 绘制粒子
+            function drawParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                for (const p of particles) {
+                    ctx.globalAlpha = p.life / 100;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            // 焚烧效果
+            function startBurningEffect() {
+                if (!imageLoaded) return;
+                
+                loading.style.display = 'block';
+                canvas.style.display = 'block';
+                
+                let burnHeight = previewImage.height;
+                let burnSpeed = 2;
+                let burnInterval = 30;
+                let lastBurnTime = 0;
+                
+                function animate(currentTime) {
+                    if (!lastBurnTime) lastBurnTime = currentTime;
+                    const deltaTime = currentTime - lastBurnTime;
+                    
+                    if (deltaTime > burnInterval && burnHeight > 0) {
+                        burnHeight -= burnSpeed;
+                        lastBurnTime = currentTime;
+                        
+                        // 创建新的火焰粒子
+                        for (let x = 0; x < previewImage.width; x += 10) {
+                            createParticles(x, burnHeight, 2);
+                        }
+                        
+                        // 更新图片显示区域
+                        previewImage.style.clipPath = `polygon(0% 0%, 100% 0%, 100% ${burnHeight}px, 0% ${burnHeight}px)`;
+                    }
+                    
+                    updateParticles();
+                    drawParticles();
+                    
+                    if (burnHeight > 0 || particles.length > 0) {
+                        animationId = requestAnimationFrame(animate);
+                    } else {
+                        // 焚烧完成
+                        previewImage.style.display = 'none';
+                        loading.style.display = 'none';
+                        resultMessage.style.display = 'block';
+                    }
+                }
+                
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            // 初始化
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        });
+    </script>
+</body>
+</html>
